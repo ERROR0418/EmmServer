@@ -124,12 +124,6 @@ mongo.connect(url, {
             })
             res.json(items)
         })
-        // [{"rest_message_id": "58e86e26-af81-4ac1-8781-d02e66b71c70",
-        // "rest_message_sender_name": "QWFyb24gNDZmMQ==",
-        // "rest_message_sender_id": "usr_33882acd-1874-4dfc-b5cf-3000781846f1",
-        // "rest_message_body": "dGVzdA==",
-        // "rest_message_icon": "None",
-        // "rest_message_created": 1599774567}]
     })
 
     app.patch(`/api/message/:id`, (req, res)=>{
