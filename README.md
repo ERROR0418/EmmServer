@@ -2,6 +2,8 @@
 Reverse Engineered third party API server for EMMVRC
 
 ## Warning!
+Emm will definitely not condone any of this, you might get banned from the EMMVRC network for using it
+
 This code is VERY messy and was threw together in the space of 4-6 hours over midnight.
 
 Feel free to use this but no bug testing or security audits have been run.
