@@ -18,6 +18,7 @@ mongo.connect(url, {
     const db = client.db('emmVRC')
     const tokens = db.collection('tokens')
     const pins = db.collection('pins')
+    const loginKeys = db.collection('loginKeys')
     const messages = db.collection('messages')
     const avatars = db.collection('avatars')
     const blocked = db.collection('blocked')
@@ -47,7 +48,8 @@ mongo.connect(url, {
     })
 
 
-        app.post(`/api/authentication/login`, (req, res)=>{
+     app.post(`/api/authentication/login`, (req, res)=>{
+        console.log(req.body)
         blocked.findOne({userid: req.body.username}, (err, item)=>{
             if(item){
                 console.log("user is blocked!");
@@ -55,6 +57,7 @@ mongo.connect(url, {
             }else{
                 pins.findOne({userid: req.body.username}, (err, item)=>{
                     if(!item){
+                        console.log("no pin")
                         if(req.body.password==req.body.username){
                             var newToken = crypto.randomBytes(32).toString('hex');
                             tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
@@ -75,17 +78,35 @@ mongo.connect(url, {
                             })
                         }
                     }else{
-                        if(item.pin == req.body.password){
-                            var newToken = crypto.randomBytes(32).toString('hex');
-                            tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
-                                res.json({
-                                    "token": newToken,
-                                    "reset": false
-                                });
-                            })
-                        }else{
-                            res.json({message: "forbidden"})
-                        }
+                        loginKeys.findOne({userid: req.body.username}, (err, loginKeyItem)=>{
+                            console.log("pin")
+                            if(item.pin == req.body.password){
+                                var newToken = crypto.randomBytes(32).toString('hex');
+                                var loginKey = crypto.randomBytes(32).toString('hex');
+                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey}}, {upsert: true});
+                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                    res.json({
+                                        "token": newToken,
+                                        "loginKey": loginKey,
+                                        "reset": false
+                                    });
+                                })
+                            }else if(loginKeyItem && loginKeyItem.loginKey == req.body.password){
+                                var newToken = crypto.randomBytes(32).toString('hex');
+                                var loginKey = crypto.randomBytes(32).toString('hex');
+                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey}}, {upsert: true});
+                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                    res.json({
+                                        "token": newToken,
+                                        "loginKey": loginKey,
+                                        "reset": false
+                                    });
+                                })
+                            }else{
+                                console.log("invalid combination")
+                                res.status(401).json({message: "invalid combination"})
+                            }
+                        })
                     }
                 })
             }
