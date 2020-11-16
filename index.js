@@ -17,6 +17,7 @@ mongo.connect(url, {
   }
     const db = client.db('emmVRC')
     const tokens = db.collection('tokens')
+    const pins = db.collection('pins')
     const messages = db.collection('messages')
     const avatars = db.collection('avatars')
     const blocked = db.collection('blocked')
@@ -46,18 +47,46 @@ mongo.connect(url, {
     })
 
 
-    app.post(`/api/authentication/login`, (req, res)=>{
+        app.post(`/api/authentication/login`, (req, res)=>{
         blocked.findOne({userid: req.body.username}, (err, item)=>{
             if(item){
                 console.log("user is blocked!");
-                return res.status(401).json();
+                return res.status(401).json({message: "forbidden"});
             }else{
-                var newToken = crypto.randomBytes(32).toString('hex');
-                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
-                    res.json({
-                        "token": newToken,
-                        "reset": true
-                    });
+                pins.findOne({userid: req.body.username}, (err, item)=>{
+                    if(!item){
+                        if(req.body.password==req.body.username){
+                            var newToken = crypto.randomBytes(32).toString('hex');
+                            tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                res.json({
+                                    "token": newToken,
+                                    "reset": true
+                                });
+                            })
+                        }else{
+                            pins.insertOne({userid: req.body.username, pin: req.body.password}, ()=>{
+                                var newToken = crypto.randomBytes(32).toString('hex');
+                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                    res.json({
+                                        "token": newToken,
+                                        "reset": false
+                                    });
+                                })
+                            })
+                        }
+                    }else{
+                        if(item.pin == req.body.password){
+                            var newToken = crypto.randomBytes(32).toString('hex');
+                            tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                res.json({
+                                    "token": newToken,
+                                    "reset": false
+                                });
+                            })
+                        }else{
+                            res.json({message: "forbidden"})
+                        }
+                    }
                 })
             }
         })
