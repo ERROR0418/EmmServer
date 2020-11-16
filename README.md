@@ -14,7 +14,7 @@ Feel free to use this but no bug testing or security audits have been run.
 - [x] Messages
 - [x] Avatar Favs
 - [x] Avatar Search
-- [ ] Pin Login
+- [x] Pin Login
 
 ## Authentication
 From looking at the tokens the real EMMVRC API gives I believe they are using JWT. I couldn't be bothered... so you get a random 32 hex token that gets revoked at the end of session.
