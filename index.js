@@ -28,6 +28,9 @@ mongo.connect(url, {
         tokens.deleteMany({expires: {"$lt": Date.now()}}, (err, res)=>{
             console.log(`Removed ${res.deletedCount} expired tokens`)
         })
+        loginKeys.deleteMany({expires: {"$lt": Date.now()}}, (err, res)=>{
+            console.log(`Removed ${res.deletedCount} expired tokens`)
+        })
     }, 600000)
 
 
