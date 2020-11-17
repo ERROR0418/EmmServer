@@ -24,6 +24,11 @@ mongo.connect(url, {
     const blocked = db.collection('blocked')
 
 
+    setInterval(()=>{
+        tokens.deleteMany({expires: {"$lt": Date.now()}}, (err, res)=>{
+            console.log(`Removed ${res.deletedCount} expired tokens`)
+        })
+    }, 600000)
 
 
     app.use(bodyParser.json());
@@ -37,6 +42,8 @@ mongo.connect(url, {
                 req.userid = item.userid;
                 req.username = item.username
                 console.log(`${req.username} -- ${req.method} ${req.path}`)
+                tokens.updateOne({token: req.headers.authorization}, {$set: {expires: (Date.now() + 600000)}})
+                loginKeys.updateOne({userid: req.userid}, {"$set": {expires: (Date.now() + 600000)}})
                 next();
             })
         }else if(req.path=="/api/authentication/login"){
@@ -60,7 +67,7 @@ mongo.connect(url, {
                         console.log("no pin")
                         if(req.body.password==req.body.username){
                             var newToken = crypto.randomBytes(32).toString('hex');
-                            tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                            tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
                                 res.json({
                                     "token": newToken,
                                     "reset": true
@@ -69,7 +76,7 @@ mongo.connect(url, {
                         }else{
                             pins.insertOne({userid: req.body.username, pin: req.body.password}, ()=>{
                                 var newToken = crypto.randomBytes(32).toString('hex');
-                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
                                     res.json({
                                         "token": newToken,
                                         "reset": false
@@ -83,8 +90,8 @@ mongo.connect(url, {
                             if(item.pin == req.body.password){
                                 var newToken = crypto.randomBytes(32).toString('hex');
                                 var loginKey = crypto.randomBytes(32).toString('hex');
-                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey}}, {upsert: true});
-                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey, expires: (Date.now() + 600000)}}, {upsert: true});
+                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
                                     res.json({
                                         "token": newToken,
                                         "loginKey": loginKey,
@@ -94,8 +101,8 @@ mongo.connect(url, {
                             }else if(loginKeyItem && loginKeyItem.loginKey == req.body.password){
                                 var newToken = crypto.randomBytes(32).toString('hex');
                                 var loginKey = crypto.randomBytes(32).toString('hex');
-                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey}}, {upsert: true});
-                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken}}, {upsert: true}, (err, result)=>{
+                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey, expires: (Date.now() + 600000)}}, {upsert: true});
+                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
                                     res.json({
                                         "token": newToken,
                                         "loginKey": loginKey,
