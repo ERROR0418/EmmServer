@@ -119,9 +119,9 @@ mongo.connect(url, {
     })
 
     app.get(`/api/avatar`, (req, res)=>{
-        avatars.find({userid: req.userid}).toArray((err, items)=>{
+        avatars.find({users: {"$all": [req.userid]}}).toArray((err, items)=>{
             items.forEach(avatar=>{
-                delete avatar.userid;
+                delete avatar.users;
                 avatar.avatar_name = Buffer.from(avatar.avatar_name).toString("base64");
                 avatar.avatar_author_name = Buffer.from(avatar.avatar_author_name).toString("base64");
             })
@@ -142,15 +142,19 @@ mongo.connect(url, {
     })
 
     app.post(`/api/avatar`, (req, res)=>{
-        avatars.insertOne({'avatar_name': req.body.avatar_name, 'avatar_id': req.body.avatar_id, 'avatar_asset_url': req.body.avatar_asset_url, 'avatar_thumbnail_image_url': req.body.avatar_thumbnail_image_url, 'avatar_author_id': req.body.avatar_author_id, 'avatar_category': req.body.avatar_category, 'avatar_author_name': req.body.avatar_author_name, 'avatar_public': req.body.avatar_public, 'avatar_supported_platforms': req.body.avatar_supported_platforms, userid: req.userid}, (err, result)=>{
+        avatars.updateOne({'avatar_name': req.body.avatar_name, 'avatar_id': req.body.avatar_id, 'avatar_asset_url': req.body.avatar_asset_url, 'avatar_thumbnail_image_url': req.body.avatar_thumbnail_image_url, 'avatar_author_id': req.body.avatar_author_id, 'avatar_category': req.body.avatar_category, 'avatar_author_name': req.body.avatar_author_name, 'avatar_public': req.body.avatar_public, 'avatar_supported_platforms': req.body.avatar_supported_platforms}, {"$push": {users: req.userid}}, {upsert: true}, (err, result)=>{
             if(err) return res.json({"status": "ERR"});
             res.json({"status": "OK"});
         })
+        // avatars.insertOne({'avatar_name': req.body.avatar_name, 'avatar_id': req.body.avatar_id, 'avatar_asset_url': req.body.avatar_asset_url, 'avatar_thumbnail_image_url': req.body.avatar_thumbnail_image_url, 'avatar_author_id': req.body.avatar_author_id, 'avatar_category': req.body.avatar_category, 'avatar_author_name': req.body.avatar_author_name, 'avatar_public': req.body.avatar_public, 'avatar_supported_platforms': req.body.avatar_supported_platforms, userid: req.userid}, (err, result)=>{
+        //     if(err) return res.json({"status": "ERR"});
+        //     res.json({"status": "OK"});
+        // })
         
     })
 
     app.delete(`/api/avatar`, (req, res)=>{
-        avatars.deleteOne({userid: req.userid, 'avatar_id': req.body.avatar_id}, (err, result)=>{
+        avatars.updateOne({'avatar_id': req.body.avatar_id}, {"$pull": {users: req.userid}}, (err, result)=>{
             if(err) return res.json({"status": "ERR"});
             res.json({"status": "OK"});
         })
