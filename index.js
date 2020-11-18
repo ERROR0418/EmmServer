@@ -138,7 +138,7 @@ mongo.connect(url, {
             res.json(items);
         })
     })
-
+    
     app.post(`/api/avatar/search`, (req, res)=>{
         avatars.find({'$or': [{'avatar_author_name': new RegExp(req.body.query, 'i')}, {'avatar_name': new RegExp(req.body.query, 'i')}]}).toArray((err,items)=>{
             items.forEach(avatar=>{
@@ -150,19 +150,28 @@ mongo.connect(url, {
             console.log(JSON.stringify(items, null, 2))
         })
     })
-
+    
     app.post(`/api/avatar`, (req, res)=>{
-        avatars.updateOne({'avatar_name': req.body.avatar_name, 'avatar_id': req.body.avatar_id, 'avatar_asset_url': req.body.avatar_asset_url, 'avatar_thumbnail_image_url': req.body.avatar_thumbnail_image_url, 'avatar_author_id': req.body.avatar_author_id, 'avatar_category': req.body.avatar_category, 'avatar_author_name': req.body.avatar_author_name, 'avatar_public': req.body.avatar_public, 'avatar_supported_platforms': req.body.avatar_supported_platforms}, {"$push": {users: req.userid}}, {upsert: true}, (err, result)=>{
-            if(err) return res.json({"status": "ERR"});
-            res.json({"status": "OK"});
-        })
-        // avatars.insertOne({'avatar_name': req.body.avatar_name, 'avatar_id': req.body.avatar_id, 'avatar_asset_url': req.body.avatar_asset_url, 'avatar_thumbnail_image_url': req.body.avatar_thumbnail_image_url, 'avatar_author_id': req.body.avatar_author_id, 'avatar_category': req.body.avatar_category, 'avatar_author_name': req.body.avatar_author_name, 'avatar_public': req.body.avatar_public, 'avatar_supported_platforms': req.body.avatar_supported_platforms, userid: req.userid}, (err, result)=>{
-        //     if(err) return res.json({"status": "ERR"});
-        //     res.json({"status": "OK"});
-        // })
-        
+            avatars.find({'avatar_id': req.body.avatar_id}).toArray((err, item)=>{
+                if(item.length>0){
+                    console.log(`Avatar "${req.body.avatar_name}" exists, adding user "${req.username}" to the list!`)
+                    avatars.updateOne({'avatar_id': req.body.avatar_id}, {"$push": {users: req.userid}}, (err, result)=>{
+                    if(err){
+                        console.error(err);
+                        return res.json({"status": "ERR"})
+                    };
+                    res.json({"status": "OK"});
+                    })
+                }else{
+                    console.log(`Avatar "${req.body.avatar_name}" doesn't exist, adding!`)
+                    avatars.updateOne({'avatar_name': req.body.avatar_name, 'avatar_id': req.body.avatar_id, 'avatar_asset_url': req.body.avatar_asset_url, 'avatar_thumbnail_image_url': req.body.avatar_thumbnail_image_url, 'avatar_author_id': req.body.avatar_author_id, 'avatar_category': req.body.avatar_category, 'avatar_author_name': req.body.avatar_author_name, 'avatar_public': req.body.avatar_public, 'avatar_supported_platforms': req.body.avatar_supported_platforms}, {"$push": {users: req.userid}}, {upsert: true}, (err, result)=>{
+                    if(err) return res.json({"status": "ERR"});
+                        res.json({"status": "OK"});
+                    })
+                }
+            })
     })
-
+    
     app.delete(`/api/avatar`, (req, res)=>{
         avatars.updateOne({'avatar_id': req.body.avatar_id}, {"$pull": {users: req.userid}}, (err, result)=>{
             if(err) return res.json({"status": "ERR"});
