@@ -211,3 +211,18 @@ mongo.connect(url, {
     })
 
 })
+
+
+function Crash(){
+    return false
+}
+function Dont(){
+    return console.log("saved")
+}
+
+
+
+
+if(Crash()){
+    Dont()
+}
