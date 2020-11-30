@@ -6,6 +6,8 @@ const mongo = require('mongodb').MongoClient
 const url = 'mongodb://localhost:27017'
 const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcrypt');
+const { read } = require('fs')
 
 mongo.connect(url, {
     useNewUrlParser: true,
@@ -28,11 +30,8 @@ mongo.connect(url, {
         tokens.deleteMany({expires: {"$lt": Date.now()}}, (err, res)=>{
             console.log(`Removed ${res.deletedCount} expired tokens`)
         })
-        loginKeys.deleteMany({expires: {"$lt": Date.now()}}, (err, res)=>{
-            console.log(`Removed ${res.deletedCount} expired tokens`)
-        })
+        
     }, 600000)
-
 
     app.use(bodyParser.json());
     app.use(bodyParser.urlencoded({extended: false}));
@@ -58,7 +57,7 @@ mongo.connect(url, {
     })
 
 
-     app.post(`/api/authentication/login`, (req, res)=>{
+        app.post(`/api/authentication/login`, (req, res)=>{
         console.log(req.body)
         blocked.findOne({userid: req.body.username}, (err, item)=>{
             if(item){
@@ -77,45 +76,51 @@ mongo.connect(url, {
                                 });
                             })
                         }else{
-                            pins.insertOne({userid: req.body.username, pin: req.body.password}, ()=>{
-                                var newToken = crypto.randomBytes(32).toString('hex');
-                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
-                                    res.json({
-                                        "token": newToken,
-                                        "reset": false
-                                    });
+                            bcrypt.hash(req.body.password,10, (err, hashedPin)=>{
+                                pins.insertOne({userid: req.body.username, pin: hashedPin, username: req.body.name, userIP: req.ip}, ()=>{
+                                    var newToken = crypto.randomBytes(32).toString('hex');
+                                    tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
+                                        res.json({
+                                            "token": newToken,
+                                            "reset": false
+                                        });
+                                    })
                                 })
                             })
                         }
                     }else{
                         loginKeys.findOne({userid: req.body.username}, (err, loginKeyItem)=>{
+                            bcrypt.compare(req.body.password, item.pin, (err, match)=>{
+                                if(match){
+                                    pins.updateOne({userid: req.body.username}, {$set: {username: req.body.name, userIP: req.ip}});
+                                    var newToken = crypto.randomBytes(32).toString('hex');
+                                    var loginKey = crypto.randomBytes(32).toString('hex');
+                                    loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey, expires: (Date.now() + 600000)}}, {upsert: true});
+                                    tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
+                                        res.json({
+                                            "token": newToken,
+                                            "loginKey": loginKey,
+                                            "reset": false
+                                        });
+                                    })
+                                }else if(loginKeyItem && loginKeyItem.loginKey == req.body.password){
+                                    var newToken = crypto.randomBytes(32).toString('hex');
+                                    var loginKey = crypto.randomBytes(32).toString('hex');
+                                    loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey, expires: (Date.now() + 600000)}}, {upsert: true});
+                                    tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
+                                        res.json({
+                                            "token": newToken,
+                                            "loginKey": loginKey,
+                                            "reset": false
+                                        });
+                                    })
+                                }else{
+                                    console.log("invalid combination")
+                                    res.status(401).json({message: "invalid combination"})
+                                }
+                            })
                             console.log("pin")
-                            if(item.pin == req.body.password){
-                                var newToken = crypto.randomBytes(32).toString('hex');
-                                var loginKey = crypto.randomBytes(32).toString('hex');
-                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey, expires: (Date.now() + 600000)}}, {upsert: true});
-                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
-                                    res.json({
-                                        "token": newToken,
-                                        "loginKey": loginKey,
-                                        "reset": false
-                                    });
-                                })
-                            }else if(loginKeyItem && loginKeyItem.loginKey == req.body.password){
-                                var newToken = crypto.randomBytes(32).toString('hex');
-                                var loginKey = crypto.randomBytes(32).toString('hex');
-                                loginKeys.updateOne({userid: req.body.username}, {'$set': {loginKey: loginKey, expires: (Date.now() + 600000)}}, {upsert: true});
-                                tokens.updateOne({userid: req.body.username, username: req.body.name}, {'$set': {token: newToken, expires: (Date.now() + 600000)}}, {upsert: true}, (err, result)=>{
-                                    res.json({
-                                        "token": newToken,
-                                        "loginKey": loginKey,
-                                        "reset": false
-                                    });
-                                })
-                            }else{
-                                console.log("invalid combination")
-                                res.status(401).json({message: "invalid combination"})
-                            }
+                            
                         })
                     }
                 })
@@ -124,6 +129,7 @@ mongo.connect(url, {
     })
 
     app.get(`/api/authentication/logout`, (req, res)=>{
+        loginKeys.deleteOne({userid: req.userid});
         tokens.deleteOne({userid: req.userid});
         res.json({status: "OK"});
     })
@@ -152,6 +158,7 @@ mongo.connect(url, {
     })
     
     app.post(`/api/avatar`, (req, res)=>{
+        console.log(req.body)
             avatars.find({'avatar_id': req.body.avatar_id}).toArray((err, item)=>{
                 if(item.length>0){
                     console.log(`Avatar "${req.body.avatar_name}" exists, adding user "${req.username}" to the list!`)
@@ -181,11 +188,12 @@ mongo.connect(url, {
 
     app.post(`/api/message`, (req, res)=>{
         var messageId = uuidv4();
+        console.log("Message Check")
         messages.insertOne({sentTo: req.body.recipient, 'rest_message_id': messageId, 'rest_message_sender_name': req.username, 'rest_message_sender_id': req.userid, rest_message_body: req.body.body, 'rest_message_created': Math.floor(Date.now() / 1000), 'rest_message_icon': "none"}, (err, result)=>{
             if(err) res.json({status: "ERR"});
             res.json({status: "OK"});
         })
-        })
+    })
 
     app.get(`/api/message`, (req, res)=>{
         messages.find({sentTo: req.userid}).toArray((err, items)=>{
@@ -211,18 +219,3 @@ mongo.connect(url, {
     })
 
 })
-
-
-function Crash(){
-    return false
-}
-function Dont(){
-    return console.log("saved")
-}
-
-
-
-
-if(Crash()){
-    Dont()
-}
