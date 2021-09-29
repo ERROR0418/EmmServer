@@ -3,7 +3,7 @@ Reverse Engineered third party API server for EMMVRC
 
 Public version is available and may be more updated, it is available under [mmEVRC](https://github.com/mmeVRC/emmVRC_Server)'s profile.
 ## Warning!
-This is old, should still work but... Not tested after last code commit
+This is old... Not tested after last code commit
 
 Emm will definitely not condone any of this, you might get banned from the EMMVRC network for using it
 
